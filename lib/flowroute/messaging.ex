@@ -3,28 +3,47 @@ defmodule Flowroute.Messaging do
 
   @api_url "https://api.flowroute.com/v2.1"
 
-  def test_send(body) do
-    send_sms(
-      [from: "15416220100", to: "15416013426", body: body],
+  def test_sms(body) do
+    sms(
+      [from: @my_voip, to: @my_cell, body: body],
+      {@temp_username, @temp_secret}
+    )
+  end
+
+  def test_mms(body) do
+    mms(
+      [
+        from: @my_voip,
+        to: @my_cell,
+        body: body,
+        media_urls: [
+          "https://co0069yjui-flywheel.netdna-ssl.com/wp-content/uploads/2017/04/Gopher-1-e1493176782243.png"
+        ]
+      ],
       {@temp_username, @temp_secret}
     )
   end
 
   def test_parse_sms() do
-    [from: "15416220100", to: "15416013426", body: "hello moto"]
-    |> parse_options(&sms_option/1)
+    [from: @my_voip, to: @my_cell, body: "hello moto"]
+    |> format_request_data(&sms_option/1)
   end
 
   def test_parse_mms() do
-    [from: "15416220100", to: "15416013426", body: "hello moto", is_mms: true, hmm: "nope"]
-    |> parse_options(&mms_option/1)
+    [from: @my_voip, to: @my_cell, body: "hello moto", is_mms: true, hmm: "nope"]
+    |> format_request_data(&mms_option/1)
   end
 
-  def parse_options(options, fun) when is_function(fun) do
-    options
+  @spec format_request_data([{atom(), any}], function()) :: map()
+  def format_request_data(data, fun)
+      when is_list(data)
+      when is_function(fun) do
+    data
     |> Enum.filter(fun)
     |> Enum.into(%{})
   end
+
+  def format_request_data(_, _), do: %{}
 
   defguard is_phone_number(v) when is_binary(v)
   defguard is_url(v) when is_binary(v)
@@ -42,12 +61,23 @@ defmodule Flowroute.Messaging do
   def mms_option({:is_mms, v}) when is_boolean(v), do: true
   def mms_option({_k, _v}), do: false
 
-  def send_sms(options, auth) do
-    with payload <- parse_options(options, &sms_option/1),
+  @spec sms([{atom(), any}], {String.t(), String.t()}) :: tuple()
+  def sms(data, auth) do
+    send("#{@api_url}/messages", data, &sms_option/1, auth)
+  end
+
+  @spec mms([{atom(), any}], {String.t(), String.t()}) :: tuple()
+  def mms(data, auth) do
+    send("#{@api_url}/messages", data, &mms_option/1, auth)
+  end
+
+  @spec send(String.t(), [{atom(), any}], function(), {String.t(), String.t()}) :: tuple()
+  def send(url, data, data_fun, auth) do
+    with payload <- format_request_data(data, data_fun),
          {:ok, body} <- Poison.encode(payload),
-         {:ok, response} <- Client.post("#{@api_url}/messages", body, auth),
+         {:ok, response} <- Client.post(url, body, auth),
          {:ok, decoded} <- Poison.decode(response) do
-      decoded
+      {:ok, decoded}
     else
       e ->
         IO.puts("not what we wanted")
