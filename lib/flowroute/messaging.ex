@@ -3,37 +3,6 @@ defmodule Flowroute.Messaging do
 
   @api_url "https://api.flowroute.com/v2.1"
 
-  def test_sms(body) do
-    sms(
-      [from: @my_voip, to: @my_cell, body: body],
-      {@temp_username, @temp_secret}
-    )
-  end
-
-  def test_mms(body) do
-    mms(
-      [
-        from: @my_voip,
-        to: @my_cell,
-        body: body,
-        media_urls: [
-          "https://co0069yjui-flywheel.netdna-ssl.com/wp-content/uploads/2017/04/Gopher-1-e1493176782243.png"
-        ]
-      ],
-      {@temp_username, @temp_secret}
-    )
-  end
-
-  def test_parse_sms() do
-    [from: @my_voip, to: @my_cell, body: "hello moto"]
-    |> format_request_data(&sms_option/1)
-  end
-
-  def test_parse_mms() do
-    [from: @my_voip, to: @my_cell, body: "hello moto", is_mms: true, hmm: "nope"]
-    |> format_request_data(&mms_option/1)
-  end
-
   @spec format_request_data([{atom(), any}], function()) :: map()
   def format_request_data(data, fun)
       when is_list(data)
@@ -61,21 +30,47 @@ defmodule Flowroute.Messaging do
   def mms_option({:is_mms, v}) when is_boolean(v), do: true
   def mms_option({_k, _v}), do: false
 
-  @spec sms([{atom(), any}], {String.t(), String.t()}) :: tuple()
-  def sms(data, auth) do
-    send("#{@api_url}/messages", data, &sms_option/1, auth)
+  def send(type, from, to, options \\ [], auth \\ [])
+
+  def send(type, from, to, options, auth)
+      when is_atom(type)
+      when type in [:sms, :mms]
+      when is_binary(from)
+      when is_binary(to) do
+    options
+    |> Kernel.++(from: from, to: to)
+    |> raw(type, auth)
   end
 
-  @spec mms([{atom(), any}], {String.t(), String.t()}) :: tuple()
-  def mms(data, auth) do
-    send("#{@api_url}/messages", data, &mms_option/1, auth)
+  def send(_, _, _, _, _) do
+    raise "Argument error"
   end
 
-  @spec send(String.t(), [{atom(), any}], function(), {String.t(), String.t()}) :: tuple()
-  def send(url, data, data_fun, auth) do
+  def send(from, to, options \\ [], auth \\ [])
+
+  def send(from, to, options, auth)
+      when is_binary(from)
+      when is_binary(to) do
+    options
+    |> Kernel.++(from: from, to: to)
+    |> raw(:any, auth)
+  end
+
+  @spec raw([{atom(), any}], atom(), list()) :: tuple()
+  def raw(data, message_type, auth \\ []) do
+    auth_user = Keyword.get(auth, :access_key, Application.get_env(:flowroute, :access_key))
+    auth_pass = Keyword.get(auth, :secret_key, Application.get_env(:flowroute, :secret_key))
+
+    data_fun =
+      case message_type do
+        :sms -> &sms_option/1
+        :mms -> &mms_option/1
+        :any -> fn _ -> true end
+      end
+
     with payload <- format_request_data(data, data_fun),
          {:ok, body} <- Poison.encode(payload),
-         {:ok, response} <- Client.post(url, body, auth),
+         {:ok, response} <- Client.post("#{@api_url}/messages", body, {auth_user, auth_pass}),
          {:ok, decoded} <- Poison.decode(response) do
       {:ok, decoded}
     else
