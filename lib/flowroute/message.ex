@@ -1,4 +1,4 @@
-defmodule Flowroute.Messaging do
+defmodule Flowroute.Message do
   alias Flowroute.Client
 
   @api_url "https://api.flowroute.com/v2.1"
@@ -30,36 +30,36 @@ defmodule Flowroute.Messaging do
   def mms_option({:is_mms, v}) when is_boolean(v), do: true
   def mms_option({_k, _v}), do: false
 
-  def send(type, from, to, options \\ [], auth \\ [])
+  def send(type, from, to, payload \\ [], options \\ [])
 
-  def send(type, from, to, options, auth)
+  def send(type, from, to, payload, options)
       when is_atom(type)
       when type in [:sms, :mms]
       when is_binary(from)
       when is_binary(to) do
-    options
+    payload
     |> Kernel.++(from: from, to: to)
-    |> raw(type, auth)
+    |> raw(type, options)
   end
 
   def send(_, _, _, _, _) do
     raise "Argument error"
   end
 
-  def send(from, to, options \\ [], auth \\ [])
+  def send(from, to, payload \\ [], options \\ [])
 
-  def send(from, to, options, auth)
+  def send(from, to, payload, options)
       when is_binary(from)
       when is_binary(to) do
-    options
+    payload
     |> Kernel.++(from: from, to: to)
-    |> raw(:any, auth)
+    |> raw(:any, options)
   end
 
   @spec raw([{atom(), any}], atom(), list()) :: tuple()
-  def raw(data, message_type, auth \\ []) do
-    auth_user = Keyword.get(auth, :access_key, Application.get_env(:flowroute, :access_key))
-    auth_pass = Keyword.get(auth, :secret_key, Application.get_env(:flowroute, :secret_key))
+  def raw(data, message_type, options \\ []) do
+    auth_user = Keyword.get(options, :access_key, Application.get_env(:flowroute, :access_key))
+    auth_pass = Keyword.get(options, :secret_key, Application.get_env(:flowroute, :secret_key))
 
     data_fun =
       case message_type do
