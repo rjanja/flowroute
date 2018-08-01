@@ -3,17 +3,6 @@ defmodule Flowroute.Message do
 
   @api_url "https://api.flowroute.com/v2.1"
 
-  @spec format_request_data([{atom(), any}], function()) :: map()
-  def format_request_data(data, fun)
-      when is_list(data)
-      when is_function(fun) do
-    data
-    |> Enum.filter(fun)
-    |> Enum.into(%{})
-  end
-
-  def format_request_data(_, _), do: %{}
-
   defguard is_phone_number(v) when is_binary(v)
   defguard is_url(v) when is_binary(v)
   def sms_option({:to, v}) when is_phone_number(v), do: true
@@ -30,47 +19,88 @@ defmodule Flowroute.Message do
   def mms_option({:is_mms, v}) when is_boolean(v), do: true
   def mms_option({_k, _v}), do: false
 
-  def send(type, from, to, payload \\ [], options \\ [])
+  def send(type, from, to, payload, options \\ [])
 
   def send(type, from, to, payload, options)
       when is_atom(type)
       when type in [:sms, :mms]
       when is_binary(from)
-      when is_binary(to) do
+      when is_binary(to)
+      when is_list(payload)
+      when is_list(options) do
     payload
     |> Kernel.++(from: from, to: to)
-    |> raw(type, options)
+    |> limit_payload(type)
+    |> post("messages", options)
   end
 
   def send(_, _, _, _, _) do
     raise "Argument error"
   end
 
-  def send(from, to, payload \\ [], options \\ [])
+  def send!(from, to, payload, options \\ [])
 
-  def send(from, to, payload, options)
+  def send!(from, to, payload, options)
       when is_binary(from)
-      when is_binary(to) do
+      when is_binary(to)
+      when is_list(payload)
+      when is_list(options) do
     payload
     |> Kernel.++(from: from, to: to)
-    |> raw(:any, options)
+    |> post("messages", options)
+    |> elem(1)
   end
 
-  @spec raw([{atom(), any}], atom(), list()) :: tuple()
-  def raw(data, message_type, options \\ []) do
-    auth_user = Keyword.get(options, :access_key, Application.get_env(:flowroute, :access_key))
-    auth_pass = Keyword.get(options, :secret_key, Application.get_env(:flowroute, :secret_key))
+  def mdr(message_id) do
+    get("messages/#{message_id}")
+  end
 
-    data_fun =
-      case message_type do
-        :sms -> &sms_option/1
-        :mms -> &mms_option/1
-        :any -> fn _ -> true end
-      end
+  def mdr!(message_id) do
+    with {:ok, result} <- mdr(message_id) do
+      result
+    end
+  end
 
-    with payload <- format_request_data(data, data_fun),
+  def mdr_list(start_date, options \\ []) do
+    [
+      limit: Keyword.get(options, :limit),
+      offset: Keyword.get(options, :offset),
+      end_date: Keyword.get(options, :end_date)
+    ]
+    |> Keyword.put(:start_date, start_date)
+    |> Enum.filter(fn {_, v} -> !is_nil(v) end)
+    |> URI.encode_query()
+    |> (fn query -> "messages/?" <> query end).()
+    |> get()
+  end
+
+  def mdr_list!(start_date, options \\ []) do
+    with {:ok, %{"data" => messages}} <- mdr_list(start_date, options) do
+      messages
+    end
+  end
+
+  def tally_cost(messages) when is_list(messages) do
+    messages
+    |> Enum.map(&get_in(&1, ["attributes", "amount_nanodollars"]))
+    |> Enum.sum()
+    |> Kernel.*(0.000000001)
+  end
+
+  def limit_payload(payload, :sms) do
+    Enum.filter(payload, &sms_option/1)
+  end
+
+  def limit_payload(payload, :mms) do
+    Enum.filter(payload, &mms_option/1)
+  end
+
+  @spec post([{atom(), any}], String.t(), list()) :: tuple()
+  def post(data, uri, options \\ []) do
+    with payload <- Enum.into(data, %{}),
          {:ok, body} <- Poison.encode(payload),
-         {:ok, response} <- Client.post("#{@api_url}/messages", body, {auth_user, auth_pass}),
+         {:ok, response} <-
+           Client.request(:post, api_url(uri, options), body, hackney_auth(options)),
          {:ok, decoded} <- Poison.decode(response) do
       {:ok, decoded}
     else
@@ -78,5 +108,30 @@ defmodule Flowroute.Message do
         IO.puts("not what we wanted")
         IO.inspect(e)
     end
+  end
+
+  @spec get(String.t(), list()) :: tuple()
+  def get(uri, options \\ []) do
+    with {:ok, response} <- Client.request(:get, api_url(uri, options), "", hackney_auth(options)),
+         {:ok, decoded} <- Poison.decode(response) do
+      {:ok, decoded}
+    else
+      e ->
+        IO.puts("not what we wanted")
+        IO.inspect(e)
+    end
+  end
+
+  defp api_url(uri, options) do
+    options
+    |> Keyword.get(:api_url, Application.get_env(:flowroute, :api_url, @api_url))
+    |> Kernel.<>("/#{uri}")
+  end
+
+  defp hackney_auth(options) do
+    {
+      Keyword.get(options, :access_key, Application.get_env(:flowroute, :access_key)),
+      Keyword.get(options, :secret_key, Application.get_env(:flowroute, :secret_key))
+    }
   end
 end

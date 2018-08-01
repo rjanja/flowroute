@@ -3,12 +3,13 @@ defmodule Flowroute.Client do
     {"Content-Type", "application/json"}
   ]
 
-  def post(url, body, {username, secret}) do
-    case HTTPoison.post(
+  def request(type, url, body, auth) do
+    case HTTPoison.request(
+           type,
            url,
            body,
            @headers,
-           hackney: [basic_auth: {username, secret}]
+           hackney: [basic_auth: auth]
          ) do
       {:ok, %HTTPoison.Response{body: response_body}} -> {:ok, response_body}
       {:error, _} -> :error

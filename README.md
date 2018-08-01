@@ -1,6 +1,6 @@
 # Flowroute
 
-A wrapper around the [Flowroute](https://www.flowroute.com) telephony API v2.1, currently supporting the Messaging component.
+A wrapper around the [Flowroute](https://www.flowroute.com) telephony API, currently supporting the Messaging v2.1 component.
 
 ## Installation
 
@@ -28,11 +28,11 @@ config :flowroute,
 
 `send/5` can be used to strip any invalid data keys depending on the type of message.
 
-`send(type, from, to, payload \\ [], options \\ [])`
+`send(:sms, from, to, payload \\ [], options \\ [])`
 
-`send/4` can be used to send arbitrary data keys.
+`send!/4` can be used to send arbitrary data keys.
 
-`def send(from, to, payload \\ [], options \\ [])`
+`def send!(from, to, payload \\ [], options \\ [])`
 
 The `from` and `to` phone numbers are required by Flowroute to be in [E.164](http://en.wikipedia.org/wiki/E.164) format, but no validation is done by this library. See [ex_phone_number](https://github.com/socialpaymentsbv/ex_phone_number) if you are looking for E.164 validation.
 
@@ -58,6 +58,67 @@ iex> Flowroute.Message.send(:sms, "15551230000", "15551234444", body: "Hello the
 Flowroute.Message.send(:mms, "15551230000", "15551234444",
  body: "Enjoy this donut",
  media_urls: ["https://upload.wikimedia.org/wikipedia/commons/b/bb/Donut_879.png"])
+```
+
+### Getting an MDR (Message Delivery Receipt)
+
+```elixir
+iex(2)> Flowroute.Message.mdr("mdr2-f3ce388895a711e89295768a2c7516d2")
+{:ok,
+ %{
+   "data" => %{
+     "attributes" => %{
+       "delivery_receipts" => [],
+       "status" => "mmsc submit",
+       ...
+     },
+     "id" => "mdr2-f3ce388895a711e89295768a2c7516d2",
+     ...
+   },
+   ...
+ }}
+```
+
+### Getting a list of MDRs
+
+```elixir
+iex(3)> Flowroute.Message.mdr_list("2018-08-01", limit: 2, end_date: "2018-08-31")
+{:ok,
+ %{
+   "data" => [
+     %{
+       "attributes" => %{
+         "amount_display" => "$0.0040",
+         "amount_nanodollars" => 4000000,
+         "body" => "This is a test of the yoyoyo system!",
+         "delivery_receipts" => [
+           ...
+         ]
+       },
+       ...
+    },
+    %{
+      "attributes" => %{
+      "amount_display" => "$0.0040",
+         "amount_nanodollars" => 4000000,
+         "body" => "This is a test of the yoyoyo system!",
+         "delivery_receipts" => [
+           ...
+         ]
+       },
+       ...
+    }
+  ]
+}}
+```
+
+### Tallying costs of messages
+
+```elixir
+iex(4)> Flowroute.Message.mdr_list!("2018-08-01", limit: 1) |> Flowroute.Message.tally_cost()
+0.004
+iex(5)> Flowroute.Message.mdr_list!("2018-08-01") |> Flowroute.Message.tally_cost()
+0.057
 ```
 
 Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
