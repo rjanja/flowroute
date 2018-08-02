@@ -1,6 +1,6 @@
 # Flowroute
 
-A wrapper around the [Flowroute](https://www.flowroute.com) telephony API, currently supporting the Messaging v2.1 component.
+A wrapper for the [Flowroute](https://www.flowroute.com) telephony API, currently supporting the Messaging v2.1 component.
 
 ## Installation
 
@@ -26,13 +26,7 @@ config :flowroute,
 
 ## Usage
 
-`send/5` can be used to strip any invalid data keys depending on the type of message.
-
 `send(:sms, from, to, payload \\ [], options \\ [])`
-
-`send!/4` can be used to send arbitrary data keys.
-
-`def send!(from, to, payload \\ [], options \\ [])`
 
 The `from` and `to` phone numbers are required by Flowroute to be in [E.164](http://en.wikipedia.org/wiki/E.164) format, but no validation is done by this library. See [ex_phone_number](https://github.com/socialpaymentsbv/ex_phone_number) if you are looking for E.164 validation.
 
@@ -60,7 +54,7 @@ Flowroute.Message.send(:mms, "15551230000", "15551234444",
  media_urls: ["https://upload.wikimedia.org/wikipedia/commons/b/bb/Donut_879.png"])
 ```
 
-### Getting an MDR (Message Delivery Receipt)
+### Retrieving a Message Delivery Receipt (MDR)
 
 ```elixir
 iex(2)> Flowroute.Message.mdr("mdr2-f3ce388895a711e89295768a2c7516d2")
@@ -79,7 +73,7 @@ iex(2)> Flowroute.Message.mdr("mdr2-f3ce388895a711e89295768a2c7516d2")
  }}
 ```
 
-### Getting a list of MDRs
+### Retreiving a list of MDRs within a date range
 
 ```elixir
 iex(3)> Flowroute.Message.mdr_list("2018-08-01", limit: 2, end_date: "2018-08-31")

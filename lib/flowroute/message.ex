@@ -104,9 +104,7 @@ defmodule Flowroute.Message do
          {:ok, decoded} <- Poison.decode(response) do
       {:ok, decoded}
     else
-      e ->
-        IO.puts("not what we wanted")
-        IO.inspect(e)
+      e -> {:error, e}
     end
   end
 
@@ -116,9 +114,7 @@ defmodule Flowroute.Message do
          {:ok, decoded} <- Poison.decode(response) do
       {:ok, decoded}
     else
-      e ->
-        IO.puts("not what we wanted")
-        IO.inspect(e)
+      e -> {:error, e}
     end
   end
 

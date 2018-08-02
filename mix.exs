@@ -26,4 +26,12 @@ defmodule Flowroute.MixProject do
       {:poison, "~> 3.1"}
     ]
   end
+
+  def package do
+    [
+      maintainers: ["Robert Adams"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/rjanja/flowroute"}
+    ]
+  end
 end
