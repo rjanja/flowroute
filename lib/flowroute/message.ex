@@ -98,10 +98,10 @@ defmodule Flowroute.Message do
   @spec post([{atom(), any}], String.t(), list()) :: tuple()
   def post(data, uri, options \\ []) do
     with payload <- Enum.into(data, %{}),
-         {:ok, body} <- Poison.encode(payload),
+         {:ok, body} <- Jason.encode(payload),
          {:ok, response} <-
            Client.request(:post, api_url(uri, options), body, hackney_auth(options)),
-         {:ok, decoded} <- Poison.decode(response) do
+         {:ok, decoded} <- Jason.decode(response) do
       {:ok, decoded}
     else
       e -> {:error, e}
@@ -111,7 +111,7 @@ defmodule Flowroute.Message do
   @spec get(String.t(), list()) :: tuple()
   def get(uri, options \\ []) do
     with {:ok, response} <- Client.request(:get, api_url(uri, options), "", hackney_auth(options)),
-         {:ok, decoded} <- Poison.decode(response) do
+         {:ok, decoded} <- Jason.decode(response) do
       {:ok, decoded}
     else
       e -> {:error, e}
