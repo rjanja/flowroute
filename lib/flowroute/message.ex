@@ -3,22 +3,6 @@ defmodule Flowroute.Message do
 
   @api_url "https://api.flowroute.com/v2.1"
 
-  defguard is_phone_number(v) when is_binary(v)
-  defguard is_url(v) when is_binary(v)
-  def sms_option({:to, v}) when is_phone_number(v), do: true
-  def sms_option({:from, v}) when is_phone_number(v), do: true
-  def sms_option({:body, v}) when is_binary(v), do: true
-  def sms_option({:dlr_callback, v}) when is_url(v), do: true
-  def sms_option({_k, _v}), do: false
-
-  defguard is_url_list(v) when is_list(v)
-  def mms_option({:to, v}) when is_phone_number(v), do: true
-  def mms_option({:from, v}) when is_phone_number(v), do: true
-  def mms_option({:body, v}) when is_binary(v), do: true
-  def mms_option({:media_urls, v}) when is_url_list(v), do: true
-  def mms_option({:is_mms, v}) when is_boolean(v), do: true
-  def mms_option({_k, _v}), do: false
-
   def send(type, from, to, payload, options \\ [])
 
   def send(type, from, to, payload, options)
@@ -87,14 +71,6 @@ defmodule Flowroute.Message do
     |> Kernel.*(0.000000001)
   end
 
-  def limit_payload(payload, :sms) do
-    Enum.filter(payload, &sms_option/1)
-  end
-
-  def limit_payload(payload, :mms) do
-    Enum.filter(payload, &mms_option/1)
-  end
-
   @spec post([{atom(), any}], String.t(), list()) :: tuple()
   def post(data, uri, options \\ []) do
     with payload <- Enum.into(data, %{}),
@@ -116,6 +92,30 @@ defmodule Flowroute.Message do
     else
       e -> {:error, e}
     end
+  end
+
+  defguardp is_phone_number(v) when is_binary(v)
+  defguardp is_url(v) when is_binary(v)
+  defp sms_option({:to, v}) when is_phone_number(v), do: true
+  defp sms_option({:from, v}) when is_phone_number(v), do: true
+  defp sms_option({:body, v}) when is_binary(v), do: true
+  defp sms_option({:dlr_callback, v}) when is_url(v), do: true
+  defp sms_option({_k, _v}), do: false
+
+  defguardp is_url_list(v) when is_list(v)
+  defp mms_option({:to, v}) when is_phone_number(v), do: true
+  defp mms_option({:from, v}) when is_phone_number(v), do: true
+  defp mms_option({:body, v}) when is_binary(v), do: true
+  defp mms_option({:media_urls, v}) when is_url_list(v), do: true
+  defp mms_option({:is_mms, v}) when is_boolean(v), do: true
+  defp mms_option({_k, _v}), do: false
+
+  defp limit_payload(payload, :sms) do
+    Enum.filter(payload, &sms_option/1)
+  end
+
+  defp limit_payload(payload, :mms) do
+    Enum.filter(payload, &mms_option/1)
   end
 
   defp api_url(uri, options) do
